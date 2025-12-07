@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Checklist 30 dias — Python (TDAH friendly)</title>
+
+  <style>
+    :root{
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --accent: #4b8ef8;
+      --muted: #666;
+      --success: #28a745;
+      --danger: #dc3545;
+    }
+    body{font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; background:var(--bg); color:#111}
+    .app{max-width:900px;margin:24px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{font-size:1.2rem;margin:0}
+    p.lead{margin:4px 0 12px;color:var(--muted)}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    button{background:var(--accent);color:white;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;color:var(--accent);border:1px solid rgba(75,142,248,0.2)}
+    button.warn{background:var(--danger)}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
+    .card{background:var(--card);padding:12px;border-radius:12px;box-shadow:0 6px 20px rgba(12,30,60,0.06)}
+    .day{display:flex;align-items:flex-start;gap:8px}
+    .day h3{margin:0;font-size:0.95rem}
+    .task{margin:6px 0 0;color:var(--muted);font-size:0.9rem}
+    .footer{margin-top:18px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .progress{height:10px;background:#eee;border-radius:999px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#66b3ff);width:0%}
+    @media (max-width:700px){ .grid{grid-template-columns:1fr} }
+    .small{font-size:0.85rem;color:var(--muted)}
+    input[type=file]{display:none}
+    .actions{display:flex;gap:8px;align-items:center}
+  </style>
+
+</head>
+<body>
+  <div class="app" role="main">
+
+    <header>
+      <div>
+        <h1>Checklist 30 dias — Aprender Python (TDAH friendly)</h1>
+        <p class="lead">Tarefas curtas diárias. Marque quando concluir — o progresso é salvo automaticamente no seu navegador.</p>
+      </div>
+
+      <div class="controls">
+        <button id="resetBtn" class="ghost">Resetar progresso</button>
+        <button id="exportBtn" class="ghost">Exportar progresso</button>
+        <button id="importBtn">Importar progresso</button>
+        <input type="file" id="fileInput" accept="application/json" />
+      </div>
+    </header>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+
+    <div class="card footer">
+      <div style="flex:1">
+        <div class="small">Progresso</div>
+        <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+        <div style="margin-top:8px" class="small" id="progressText">0 / 30 concluídos</div>
+      </div>
+
+      <div style="min-width:220px;text-align:right">
+        <div class="small">Salvar / Restaurar</div>
+        <div class="small">Seus dados ficam salvos no navegador.</div>
+      </div>
+    </div>
+
+    <footer style="margin-top:18px;text-align:center" class="small">
+      Dica: instale no celular adicionando à tela inicial (PWA simples).
+    </footer>
+
+  </div>
+
+  <script>
+    const plan = [
+["Dia 1","Instalar Python e VS Code; fazer Hello World"],
+["Dia 2","Variáveis + 3 exercícios"],
+["Dia 3","Tipos de dados + prática"],
+["Dia 4","Input/Print; mini programa"],
+["Dia 5","Operações matemáticas"],
+["Dia 6","Revisão + exercícios"],
+["Dia 7","Microprojeto: Calculadora"],
+["Dia 8","If/Else"],
+["Dia 9","Mini desafios de lógica"],
+["Dia 10","Loop For"],
+["Dia 11","Loop While"],
+["Dia 12","Listas (básico)"],
+["Dia 13","Revisão semanal"],
+["Dia 14","Microprojeto: Adivinhe o Número"],
+["Dia 15","Funções"],
+["Dia 16","Exercícios de funções"],
+["Dia 17","Dicionários (básico)"],
+["Dia 18","Manipulação de strings"],
+["Dia 19","Arquivos: ler/escrever"],
+["Dia 20","Revisão leve"],
+["Dia 21","Microprojeto: Gerador de Senhas"],
+["Dia 22","Módulos (random, datetime)"],
+["Dia 23","Mini scripts úteis"],
+["Dia 24","Automação simples"],
+["Dia 25","Jogo da Forca"],
+["Dia 26","App de console: Lista de Compras"],
+["Dia 27","Revisão total"],
+["Dia 28","Ajustar pontos fracos"],
+["Dia 29","Projeto final (livre)"],
+["Dia 30","Revisão geral e conclusão"]
+    ];
+
+    const STORAGE_KEY = "python_30_checklist_v1";
+    const grid = document.getElementById("grid");
+
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch(e){ return null; }
+    }
+
+    function saveState(state){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function makeCard(i, title, desc, checked){
+      const div = document.createElement("div");
+      div.className = "card";
+
+      const day = document.createElement("div");
+      day.className = "day";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!checked;
+      cb.style.width = "20px";
+      cb.style.height = "20px";
+      cb.setAttribute("aria-label", title);
+
+      cb.addEventListener("change", (ev)=>{
+        state[i] = ev.target.checked;
+        saveState(state);
+        updateProgress();
+      });
+
+      const txt = document.createElement("div");
+      txt.style.flex = "1";
+
+      const h = document.createElement("h3");
+      h.textContent = title;
+
+      const p = document.createElement("div");
+      p.className = "task";
+      p.textContent = desc;
+
+      txt.appendChild(h);
+      txt.appendChild(p);
+
+      day.appendChild(cb);
+      day.appendChild(txt);
+
+      div.appendChild(day);
+
+      return div;
+    }
+
+    let state = loadState();
+    if(!state || !Array.isArray(state) || state.length !== plan.length){
+      state = new Array(plan.length).fill(false);
+      saveState(state);
+    }
+
+    function render(){
+      grid.innerHTML = "";
+      for(let i=0;i<plan.length;i++){
+        const [title,desc] = plan[i];
+        const card = makeCard(i, title, desc, state[i]);
+        grid.appendChild(card);
+      }
+      updateProgress();
+    }
+
+    function updateProgress(){
+      const done = state.filter(Boolean).length;
+      const perc = Math.round((done / plan.length) * 100);
+      document.getElementById("bar").style.width = perc + "%";
+      document.getElementById("progressText").textContent =
+        `${done} / ${plan.length} concluídos`;
+    }
+
+    document.getElementById("resetBtn").addEventListener("click", ()=>{
+      if(!confirm("Deseja realmente resetar tudo?")) return;
+      state = new Array(plan.length).fill(false);
+      saveState(state);
+      render();
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", ()=>{
+      const payload = { state, plan };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "python_30_checklist_progress.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("importBtn").addEventListener("click",
+      ()=> document.getElementById("fileInput").click()
+    );
+
+    document.getElementById("fileInput").addEventListener("change", (ev)=>{
+      const file = ev.target.files[0];
+      if(!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          const payload = JSON.parse(e.target.result);
+          if(payload && Array.isArray(payload.state)){
+            state = payload.state.map(Boolean);
+            saveState(state);
+            render();
+            alert("Progresso importado!");
+          }
+        }catch(err){
+          alert("Arquivo inválido.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    render();
+  </script>
+
+</body>
+</html>
